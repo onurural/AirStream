@@ -50,8 +50,8 @@ def collect_historical_aqi(start_date, end_date, latitude, longitude):
     return historical_data
 
 # Define date range for historical data collection
-start_date = datetime(2020, 1, 1)  # Start date
-end_date = datetime(2020, 12, 31)  # End date
+start_date = datetime(2018, 1, 1)  # Start date
+end_date = datetime(2018, 12, 31)  # End date
 
 # Collect historical data by latitude and longitude
 historical_data = collect_historical_aqi(start_date, end_date, LATITUDE, LONGITUDE)
@@ -63,4 +63,4 @@ df = pd.DataFrame(historical_data)
 print(df.head())
 
 # Save to CSV for future use
-df.to_csv('historical_aqi_data_lat_long_20.csv', index=False)
+df.to_csv('historical_aqi_data_18.csv', index=False)
