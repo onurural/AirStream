@@ -1,33 +1,25 @@
 import pandas as pd
 
-# Load the dataset from the CSV file
-df = pd.read_csv('merged_co_no2_data_2015_2023.csv')
+# Load the CSV file into a DataFrame
+df = pd.read_csv('modified_file.csv')
 
-# Drop the 'sample_duration_code' and 'sample_duration' columns
-df = df.drop(columns=['sample_duration_code', 'sample_duration'])
+# Ensure the 'DateObserved' column is in datetime format
+df['date_local'] = pd.to_datetime(df['date_local'])
 
-# Set 'date_local' as the index
-df['date_local'] = pd.to_datetime(df['date_local'])  # Ensure it's in datetime format
-df.set_index('date_local', inplace=True)
+# Define the date range
+start_date = '2020-01-01'
+end_date = '2023-12-31'
 
-# Pivot the table to get 'CO' and 'NO2' columns for counts and percentages
-df_pivoted = df.pivot_table(
-    index='date_local',
-    columns='parameter',  # Pivot based on 'parameter' (CO or NO2)
-    values=['observation_count', 'observation_percent'],  # Use counts and percentages
-    aggfunc='first'  # Assume there's one value per date, or adjust aggregation if needed
-)
+# Find the rows between the date range
+mask = (df['date_local'] >= start_date) & (df['date_local'] <= end_date)
 
-# Rename the columns for clarity
-df_pivoted.columns = ['CO', 'CO_percent', 'NO2', 'NO2_percent']
+# Move the values from 'Ozone' column to 'OZONE' column for the specified rows
+df.loc[mask, 'Category_Name'] = df.loc[mask, 'AQI_Category']
 
-# Now swap the 'CO_percent' values with the 'NO2' column values
-df_pivoted['CO_percent'], df_pivoted['NO2'] = df_pivoted['NO2'], df_pivoted['CO_percent']
+# Optional: Drop the 'Ozone' column if it's no longer needed
+# df.drop('Ozone', axis=1, inplace=True)
 
-# Reset the index (optional, if you want 'date_local' as a column rather than index)
-df_pivoted.reset_index(inplace=True)
+# Save the modified DataFrame to a new CSV file
+df.to_csv('datasets/modified_file.csv', index=False)
 
-# Save the resulting DataFrame to a new CSV file
-df_pivoted.to_csv('modified_data.csv', index=False)
-
-print("Data has been modified and saved as 'modified_data.csv'")
+print("Values transferred from 'AQI_Category' to 'Category_Name' for the specified date range.")
