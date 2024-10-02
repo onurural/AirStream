@@ -1,69 +1,69 @@
-import requests
-import json
-import time
 from kafka import KafkaProducer
-
-# AirNow API configuration
-AIRNOW_API_KEY = '3C5EFCAD-B668-4D7D-A175-C026F6C0B372'  # Replace with your actual AirNow API key
-AIRNOW_API_URL = 'http://www.airnowapi.org/aq/observation/zipCode/current/'
-
-# Kafka configuration
-KAFKA_TOPIC = 'test-topic'  # Replace with your Kafka topic name
-KAFKA_BROKER = 'localhost:9092'  # Kafka broker address
+import json
+import requests
+import time
+import pandas as pd
 
 # Initialize Kafka producer
-print(f"Attempting to connect to Kafka broker at {KAFKA_BROKER}")
-producer = KafkaProducer(
-    bootstrap_servers=[KAFKA_BROKER],
-    value_serializer=lambda v: json.dumps(v).encode('utf-8')
-)
+producer = KafkaProducer(bootstrap_servers=['localhost:9092'],
+                         value_serializer=lambda v: json.dumps(v).encode('utf-8'))
 
-def fetch_air_quality_data(zip_code, distance=25):
-    """
-    Fetch air quality data from AirNow API for a specific zip code.
-    """
-    params = {
-        'format': 'application/json',
-        'zipCode': zip_code,
-        'distance': distance,
-        'API_KEY': AIRNOW_API_KEY
+# OpenWeatherMap API URLs (replace with your lat/lon if needed)
+pollution_api_url = 'http://api.openweathermap.org/data/2.5/air_pollution'
+weather_api_url = 'https://api.openweathermap.org/data/2.5/weather'
+params = {
+    'lat': 37.7596,
+    'lon': -122.4420,
+    'appid': '005610094dcbe6eea3d2f3dce02b3471'
+}
+
+# Fetch data from APIs
+def get_real_time_data():
+    # Get air pollution data
+    pollution_data = requests.get(pollution_api_url, params=params).json()
+    # Get weather data
+    weather_data = requests.get(weather_api_url, params=params).json()
+    
+    # Extract relevant data from both APIs
+    # weather_data['dt'] = pd.to_datetime(weather_data['dt'])
+    timestamp = pd.to_datetime(weather_data['dt'], unit='s')
+
+    data = {
+        'co': pollution_data['list'][0]['components']['co'],
+        'no': pollution_data['list'][0]['components']['no'],
+        'no2': pollution_data['list'][0]['components']['no2'],
+        'o3': pollution_data['list'][0]['components']['o3'],
+        'so2': pollution_data['list'][0]['components']['so2'],
+        'pm2_5': pollution_data['list'][0]['components']['pm2_5'],
+        'pm10': pollution_data['list'][0]['components']['pm10'],
+        'nh3': pollution_data['list'][0]['components']['nh3'],
+        'temperature': weather_data['main']['temp'],
+        'dew_point': weather_data['main']['temp'],
+        'feels_like': weather_data['main']['feels_like'],
+        'temp_min': weather_data['main']['temp_min'],
+        'temp_max': weather_data['main']['temp_max'],
+        'pressure': weather_data['main']['pressure'],
+        'humidity': weather_data['main']['humidity'],
+        'wind_speed': weather_data['wind']['speed'],
+        'wind_deg': weather_data['wind']['deg'],
+        'clouds_all': weather_data['clouds']['all'],
+        'datetime': weather_data['dt'],
+        'hour' : timestamp.hour,
+        'day_of_week' : timestamp.dayofweek,
+        'month' : timestamp.month,
     }
     
+    return data
+
+# Send data to Kafka topic
+while True:
     try:
-        response = requests.get(AIRNOW_API_URL, params=params)
-        response.raise_for_status()
-        data = response.json()
-        return data
-    except requests.exceptions.RequestException as e:
-        print(f"Error fetching data from AirNow API: {e}")
-        return None
-
-def send_data_to_kafka(data):
-    """
-    Send the air quality data to Kafka.
-    """
-    if data:
-        for record in data:
-            producer.send(KAFKA_TOPIC, value=record)
-            print(f"Sent record to Kafka: {record}")
-        producer.flush()  # Ensure all messages are sent
-    else:
-        print("No data to send to Kafka.")
-
-if __name__ == "__main__":
-    # Fetch and send data continuously every minute
-    ZIP_CODE = '20002'  # Replace with your desired ZIP code
-    while True:
-        print("Fetching air quality data...")
-        air_quality_data = fetch_air_quality_data(ZIP_CODE)
-        
-        if air_quality_data:
-            print(f"Fetched {len(air_quality_data)} records")
-        else:
-            print("No data fetched.")
-        
-        print("Sending data to Kafka...")
-        send_data_to_kafka(air_quality_data)
-        
-        # Wait for a minute before fetching the next batch of data
-        # time.sleep(60)
+        real_time_data = get_real_time_data()
+        producer.send('real-time-data-1', real_time_data)
+        producer.flush()
+        print("Data sent successfully.")
+    except Exception as e:
+        print(f"Error occurred: {e}")
+    
+    # Add a 60-second delay between API calls
+    time.sleep(60)
