@@ -1,15 +1,23 @@
 from kafka import KafkaConsumer
+from kafka import KafkaProducer
 import json
 import joblib
 import numpy as np
 import pandas as pd
 from sklearn.preprocessing import StandardScaler
+from tensorflow.keras.models import load_model
+
+
+producer = KafkaProducer(
+    bootstrap_servers=['localhost:9092'],
+    value_serializer=lambda x: json.dumps(x).encode('utf-8')
+)
 
 # Load the saved machine learning model (e.g., a Random Forest or LSTM model)
-model = joblib.load('xgboost_aqi_model.pkl')
+model = load_model('lstm_aqi_model.keras')
 scaler = joblib.load('scaler.pkl')
 # Initialize Kafka consumer
-consumer = KafkaConsumer('real-time-data-1',
+consumer = KafkaConsumer('raw-data-topic-1',
                          bootstrap_servers=['localhost:9092'],
                          auto_offset_reset='earliest',
                          enable_auto_commit=True,
@@ -59,8 +67,20 @@ for message in consumer:
     
     # Make prediction
     prediction = model.predict(processed_data)
-    
+
+    # keys = ['co', 'no', 'no2', 'o3', 'so2', 'pm2_5', 'pm10', 'nh3', 'temperature', 'dew_point', 'feels_like', 'temp_min', 'temp_max', 'pressure', 'humidity', 'wind_speed', 'wind_deg', 'clouds_all', 'datetime', 'hour', 'day_of_week', 'month']
+    # feature_dict = dict(zip(keys, processed_data))
     # Print the prediction or send it to another Kafka topic
     aqi_categories = ['Good', 'Moderate', 'Unhealthy', 'Unhealthy for Sensitive Groups', 'Very Unhealthy']
     predicted_category = aqi_categories[int(prediction[0])]
-    print(f"Predicted AQI: {predicted_category}")
+
+    
+    print(f"Predicted AQI: {(prediction[0])} ")
+    print(f"AQI: {(real_time_data)} ")
+
+
+    real_time_data['predicted_aqi'] = float(prediction[0][0])
+
+    producer.send('predictions-topic', value=real_time_data)
+    producer.flush()
+    print(f"Prediction sent to 'predictions-topic': {real_time_data}")

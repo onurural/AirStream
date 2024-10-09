@@ -16,7 +16,9 @@ params = {
     'lon': -122.4420,
     'appid': '005610094dcbe6eea3d2f3dce02b3471'
 }
-
+# 1728510323
+# 1728510323
+# 1728510323
 # Fetch data from APIs
 def get_real_time_data():
     # Get air pollution data
@@ -37,6 +39,7 @@ def get_real_time_data():
         'pm2_5': pollution_data['list'][0]['components']['pm2_5'],
         'pm10': pollution_data['list'][0]['components']['pm10'],
         'nh3': pollution_data['list'][0]['components']['nh3'],
+        'aqi': pollution_data['list'][0]['main']['aqi'],
         'temperature': weather_data['main']['temp'],
         'dew_point': weather_data['main']['temp'],
         'feels_like': weather_data['main']['feels_like'],
@@ -59,7 +62,7 @@ def get_real_time_data():
 while True:
     try:
         real_time_data = get_real_time_data()
-        producer.send('real-time-data-1', real_time_data)
+        producer.send('raw-data-topic-1', real_time_data)
         producer.flush()
         print("Data sent successfully.")
     except Exception as e:
